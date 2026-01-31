@@ -1,0 +1,2 @@
+# projet_mnist
+Francais:
