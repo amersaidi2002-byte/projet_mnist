@@ -1,15 +1,16 @@
-!unzip digits_IA_embarque.zip
 from torch import dtype
 import cv2
 import numpy as np
 from torchvision.datasets import MNIST
-from torch.utils.data import Dataset,DataLoader
+from torch.utils.data import Dataset,DataLoader, ConcatDataset
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from torch.optim import Optimizer
 from sklearn.metrics import  confusion_matrix
+from torchvision.datasets import ImageFolder
+from torch.utils.data import random_split
 
 
 def preprocess_image(image):
@@ -47,9 +48,50 @@ class MNIST_embedded(Dataset):
     return x,label
 
 
-train_dataset=MNIST_embedded(train=True)
-train_loader=DataLoader(train_dataset,batch_size=64,shuffle=True)
+train_dataset_mnist=MNIST_embedded(train=True)
 
+
+def preprocess_perso_image(image):
+  image=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+  image=255-image
+  blur=cv2.GaussianBlur(image,(3,3),0)
+  _,bin=cv2.threshold(blur,125,255,cv2.THRESH_BINARY_INV)
+  contours,_=cv2.findContours(bin.copy(),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+  best=max(contours,key=cv2.contourArea)
+  x,y,w,h=cv2.boundingRect(best)
+  roi=bin[y:y+h,x:x+w]
+
+  s=max(w,h)
+  square=np.zeros((s,s),dtype=np.uint8)
+  dx=(s-w)//2
+  dy=(s-h)//2
+  square[dy:dy+h,dx:dx+w]=roi
+
+  img28=cv2.resize(square,(28,28))
+  return img28.astype(np.float32)/255.0
+
+class perso_dataset(Dataset):
+  def __init__(self,root,transform=None):
+    self.dataset=ImageFolder(root=root,transform=transform)
+  def __len__(self):
+    return len(self.dataset)
+  def __getitem__(self, index):
+    img,label=self.dataset[index][0],self.dataset[index][1]
+    img=np.array(img,dtype=np.uint8)
+    img=preprocess_perso_image(img)
+    x=torch.from_numpy(img).unsqueeze(0)
+    return x,label
+
+
+personal_dataset=perso_dataset(root='digits',transform=None)
+print(personal_dataset.dataset.classes)
+print(personal_dataset.dataset.class_to_idx)
+train_size=int(0.5*len(personal_dataset))
+test_size=len(personal_dataset)-train_size
+train_data_perso,test_data_perso=random_split(personal_dataset,[train_size,test_size])
+
+train_data_combined = ConcatDataset([train_data_perso,train_dataset_mnist])
+train_loader=DataLoader(train_data_combined,batch_size=64,shuffle=True)
 class MLP(nn.Module):
     def __init__(self):
         super().__init__()
@@ -89,7 +131,7 @@ def train(model, loader, epochs=5):
         epochs_list.append(epoch)
         print(f"Epoch {epoch+1}, loss = {total_loss/len(loader):.4f}")
 
-train(model, train_loader, epochs=30)
+train(model, train_loader, epochs=50)
 
 plt.figure(figsize=(8,3))
 plt.plot(epochs_list,loss_list)
@@ -116,7 +158,7 @@ with torch.no_grad():
     y_pred.extend(pred.cpu().numpy())
     y_true.extend(y.cpu().numpy())
   acc=100*correct/total
-  print(f"Accuracy={acc:.2f}%")
+  print(f"Accuracy sur MNIST={acc:.2f}%")
 
 plt.figure(figsize=(6, 6))
 cm = confusion_matrix(y_true, y_pred)
@@ -143,62 +185,11 @@ for i in range(cm.shape[0]):
         )
 
 plt.tight_layout()
-plt.show() 
-
-# sur la dataset personnel
-from torchvision.datasets import ImageFolder
-from torch.utils.data import random_split
-def preprocess_perso_image(image):
-  image=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
-  blur=cv2.GaussianBlur(image,(3,3),0)
-  _,bin=cv2.threshold(blur,125,255,cv2.THRESH_BINARY_INV)
-  contours,_=cv2.findContours(bin.copy(),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
-  best=max(contours,key=cv2.contourArea)
-  x,y,w,h=cv2.boundingRect(best)
-  roi=bin[y:y+h,x:x+w]
-
-  s=max(w,h)
-  square=np.zeros((s,s),dtype=np.uint8)
-  dx=(s-w)//2
-  dy=(s-h)//2
-  square[dy:dy+h,dx:dx+w]=roi
-
-  img28=cv2.resize(square,(28,28))
-  return img28.astype(np.float32)/255.0
-
-class perso_dataset(Dataset):
-  def __init__(self,root,transform=None):
-    self.dataset=ImageFolder(root=root,transform=transform)
-  def __len__(self):
-    return len(self.dataset)
-  def __getitem__(self, index):
-    img,label=self.dataset[index][0],self.dataset[index][1]
-    img=np.array(img,dtype=np.uint8)
-    img=preprocess_perso_image(img)
-    x=torch.from_numpy(img).unsqueeze(0)
-    return x,label
-
-  
-    
-personal_dataset=perso_dataset(root='digits',transform=None)
-print(personal_dataset.dataset.classes)
-print(personal_dataset.dataset.class_to_idx)
-train_size=int(0.5*len(personal_dataset))
-test_size=len(personal_dataset)-train_size
-train_data,test_data=random_split(personal_dataset,[train_size,test_size])
-train_loader=DataLoader(train_data,batch_size=64,shuffle=True)
-test_loader=DataLoader(test_data,batch_size=64,shuffle=False)
-model.train()
-loss_list=[]
-epochs_list=[]
-train(model,train_loader,epochs=100)
-plt.figure(figsize=(8,3))
-plt.plot(epochs_list,loss_list)
-plt.xlabel("Epochs")
-plt.ylabel("Loss")
-plt.title("Loss by epochs")
 plt.show()
 
+
+
+test_loader=DataLoader(test_data_perso,batch_size=24,shuffle=False)
 model.eval()
 y_pred=[]
 y_true=[]
@@ -214,7 +205,7 @@ with torch.no_grad():
     y_pred.extend(pred.cpu().numpy())
     y_true.extend(y.cpu().numpy())
   acc=100*correct/total
-  print(f"Accuracy={acc:.2f}%")
+  print(f"Accuracy sur notre dataset={acc:.2f}%")
 
 plt.figure(figsize=(6, 6))
 cm = confusion_matrix(y_true, y_pred)
@@ -242,5 +233,3 @@ for i in range(cm.shape[0]):
 
 plt.tight_layout()
 plt.show()
-
-
