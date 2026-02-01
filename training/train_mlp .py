@@ -233,3 +233,4 @@ for i in range(cm.shape[0]):
 
 plt.tight_layout()
 plt.show()
+torch.save(model.state_dict(),"mlp_weights.pth")
