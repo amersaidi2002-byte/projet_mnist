@@ -136,7 +136,7 @@ def train(model, loader, epochs=5):
         epochs_list.append(epoch)
         print(f"Epoch {epoch+1}, loss = {total_loss/len(loader):.4f}")
 
-train(model, train_loader, epochs=20)
+train(model, train_loader, epochs=50)
 
 plt.figure(figsize=(8,3))
 plt.plot(epochs_list,loss_list)
