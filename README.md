@@ -7,7 +7,7 @@ Les modèles sont implémentés from scratch en C/C++, sans recours à des bibli
 Le système est déployé sur une carte Raspberry Pi et permet la détection et la classification de chiffres capturés par une caméra en temps réel.
 
 Le projet met l’accent sur la cohérence entre l’entraînement et l’inférence embarquée, la comparaison des performances (précision et temps d’inférence) ainsi que sur les compromis entre complexité des modèles et contraintes d’implémentation.
-English
+English:
 Embedded AI project focused on real-time handwritten digit recognition.
 The project involves training and comparing two neural network architectures (MLP and CNN) on the MNIST dataset as well as on a custom dataset, using a preprocessing pipeline consistent with the embedded inference stage.
 
