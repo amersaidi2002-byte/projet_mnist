@@ -81,17 +81,23 @@ class perso_dataset(Dataset):
     img=preprocess_perso_image(img)
     x=torch.from_numpy(img).unsqueeze(0)
     return x,label
+  
 
 
 personal_dataset=perso_dataset(root='digits',transform=None)
 print(personal_dataset.dataset.classes)
 print(personal_dataset.dataset.class_to_idx)
+
+# split 50/50 
 train_size=int(0.5*len(personal_dataset))
 test_size=len(personal_dataset)-train_size
 train_data_perso,test_data_perso=random_split(personal_dataset,[train_size,test_size])
 
 train_data_combined = ConcatDataset([train_data_perso,train_dataset_mnist])
-train_loader=DataLoader(train_data_combined,batch_size=64,shuffle=True)
+
+# ===== PHASE 1 : MNIST seul =====
+train_loader=DataLoader(train_dataset_mnist,batch_size=64,shuffle=True)
+
 class module_CNN(nn.Module):
   def __init__(self,num_classes):
     super().__init__()
@@ -104,12 +110,12 @@ class module_CNN(nn.Module):
         nn.ReLU()
     )
     self.layer3=nn.Linear(28*28,num_classes)
-
   def forward(self,x):
     out=self.layer1(x)
     out=self.layer2(out)
     out=self.layer3(out.flatten(start_dim=1))
     return out
+
 device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model=module_CNN(num_classes=10).to(device)
 print(device)
@@ -119,6 +125,7 @@ criterion=nn.CrossEntropyLoss()
 loss_list=[]
 epochs_list=[]
 model.train()
+
 def train(model, loader, epochs=5):
     for epoch in range(epochs):
         total_loss = 0
@@ -136,15 +143,18 @@ def train(model, loader, epochs=5):
         epochs_list.append(epoch)
         print(f"Epoch {epoch+1}, loss = {total_loss/len(loader):.4f}")
 
-train(model, train_loader, epochs=50)
+# MNIST: 30 epochs
+train(model, train_loader, epochs=30)
 
+# courbe de loss MNIST
 plt.figure(figsize=(8,3))
 plt.plot(epochs_list,loss_list)
 plt.xlabel("Epochs")
 plt.ylabel("Loss")
-plt.title("Loss by epochs")
+plt.title("Loss by epochs (MNIST)")
 plt.show()
 
+# Eval MNIST
 test_dataset=MNIST_embedded(train=False)
 test_loader=DataLoader(test_dataset,batch_size=64,shuffle=False)
 
@@ -169,17 +179,16 @@ plt.figure(figsize=(6, 6))
 cm = confusion_matrix(y_true, y_pred)
 
 plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
-plt.title("Confusion Matrix")
+plt.title("Confusion Matrix (MNIST)")
 plt.colorbar()
 
-classes = np.arange(10)  # MNIST: 0..9
+classes = np.arange(10)
 plt.xticks(classes, classes)
 plt.yticks(classes, classes)
 
 plt.xlabel("Predicted label")
 plt.ylabel("True label")
 
-# Écriture des valeurs dans chaque case
 thresh = cm.max() / 2.0
 for i in range(cm.shape[0]):
     for j in range(cm.shape[1]):
@@ -193,7 +202,13 @@ plt.tight_layout()
 plt.show()
 
 
+# ===== PHASE 2 : Dataset perso (train 50% / test 50%) =====
+train_loader=DataLoader(train_data_perso,batch_size=64,shuffle=True)
 
+# entrainement sur le dataset perso : 200 epochs
+train(model, train_loader, epochs=200)
+
+# résultats sur le test perso
 test_loader=DataLoader(test_data_perso,batch_size=24,shuffle=False)
 model.eval()
 y_pred=[]
@@ -216,17 +231,16 @@ plt.figure(figsize=(6, 6))
 cm = confusion_matrix(y_true, y_pred)
 
 plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
-plt.title("Confusion Matrix")
+plt.title("Confusion Matrix (Notre dataset)")
 plt.colorbar()
 
-classes = np.arange(10)  # MNIST: 0..9
+classes = np.arange(10)
 plt.xticks(classes, classes)
 plt.yticks(classes, classes)
 
 plt.xlabel("Predicted label")
 plt.ylabel("True label")
 
-# Écriture des valeurs dans chaque case
 thresh = cm.max() / 2.0
 for i in range(cm.shape[0]):
     for j in range(cm.shape[1]):
@@ -238,5 +252,58 @@ for i in range(cm.shape[0]):
 
 plt.tight_layout()
 plt.show()
+
+
+# ===== PHASE 3 : Dataset perso (train 50% / test 50%) ===== ( plus d'entrainement pour une meilleur précision)
+train_loader=DataLoader(train_data_perso,batch_size=64,shuffle=True)
+
+# entrainement sur le dataset perso : 200 epochs
+train(model, train_loader, epochs=200)
+
+# résultats sur le test perso
+test_loader=DataLoader(test_data_perso,batch_size=24,shuffle=False)
+model.eval()
+y_pred=[]
+y_true=[]
+correct=0
+total=0
+with torch.no_grad():
+  for x,y in test_loader:
+    x,y=x.to(device),y.to(device)
+    output=model(x)
+    pred=output.argmax(dim=1)
+    correct+=(pred==y).sum().item()
+    total+=y.size(0)
+    y_pred.extend(pred.cpu().numpy())
+    y_true.extend(y.cpu().numpy())
+  acc=100*correct/total
+  print(f"Accuracy sur notre dataset={acc:.2f}%")
+
+plt.figure(figsize=(6, 6))
+cm = confusion_matrix(y_true, y_pred)
+
+plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+plt.title("Confusion Matrix (Notre dataset)")
+plt.colorbar()
+
+classes = np.arange(10)
+plt.xticks(classes, classes)
+plt.yticks(classes, classes)
+
+plt.xlabel("Predicted label")
+plt.ylabel("True label")
+
+thresh = cm.max() / 2.0
+for i in range(cm.shape[0]):
+    for j in range(cm.shape[1]):
+        plt.text(
+            j, i, cm[i, j],
+            ha="center", va="center",
+            color="white" if cm[i, j] > thresh else "black"
+        )
+
+plt.tight_layout()
+plt.show()
+
 
 torch.save(model.state_dict(),"CNN_weights.pth")
