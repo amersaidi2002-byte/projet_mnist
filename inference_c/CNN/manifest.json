@@ -1,0 +1,30 @@
+{
+  "model": "cnn",
+  "checkpoint_sha256": "c50cc88fc3e4987935d36d8211f6074376b022b0b7c35c1b13e2a168f03de6b8",
+  "files": {
+    "layer1.0.bias.bin": {
+      "bytes": 4,
+      "sha256": "e510be8106fd9c6a632bd788d95ec07c41420ae8eef14d23b3705a02bde0f680"
+    },
+    "layer1.0.weight.bin": {
+      "bytes": 100,
+      "sha256": "6efb755ad45895d2dfbebafd2908fccebdc2792a892bce0a4bd44de9f4a5e810"
+    },
+    "layer2.0.bias.bin": {
+      "bytes": 4,
+      "sha256": "393b1ae1c6ae3cc3f927180a04cebfe1b19dfc329e4e8cbc2491353cf5becf8f"
+    },
+    "layer2.0.weight.bin": {
+      "bytes": 100,
+      "sha256": "d009a4841287d01f837851ef0bffdf95aba6b65278645278eccd7ba5b52cbd02"
+    },
+    "layer3.bias.bin": {
+      "bytes": 40,
+      "sha256": "5035d3e18db7bebbf113e1e6aa7f1749e37291133c1cef6a6edfa312dce74256"
+    },
+    "layer3.weight.bin": {
+      "bytes": 31360,
+      "sha256": "8730028458b65e23ec817213eacc560d5f12de7b7d108ea7ee1c9eba8e45ffb3"
+    }
+  }
+}

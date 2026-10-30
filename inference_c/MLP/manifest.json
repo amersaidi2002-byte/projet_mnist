@@ -1,0 +1,30 @@
+{
+  "model": "mlp",
+  "checkpoint_sha256": "95cc3d6d0d8fe05c07d6449bb6237979f70eccc11f597c529f67b8d4dad9a3db",
+  "files": {
+    "fc1.bias.bin": {
+      "bytes": 512,
+      "sha256": "4522627fad75a57de9290265a80c462eee8185548e13fce5b83cd4e2d8b99bf9"
+    },
+    "fc1.weight.bin": {
+      "bytes": 401408,
+      "sha256": "1e2c4cf181148d1387e1d041cec9f08932d0d5423a33629eb7b3070f8d88d385"
+    },
+    "fc2.bias.bin": {
+      "bytes": 256,
+      "sha256": "c7fcd36c5c1b7d7d5b25ccacd0c5634a9e50e44155af6aea0fdcfed91524ba5b"
+    },
+    "fc2.weight.bin": {
+      "bytes": 32768,
+      "sha256": "ca02ece844cce299c597995d5f967e5c4857bf04ff01f145fb31d78f0a8f9d0a"
+    },
+    "fc3.bias.bin": {
+      "bytes": 40,
+      "sha256": "0d3e2bed6b52df4b7553df9cb7b8785f2a3f4cfca8b8d355d99084e6571324f3"
+    },
+    "fc3.weight.bin": {
+      "bytes": 2560,
+      "sha256": "4606ee280b432a9725f0948c04d3320bd7ec2bb8a0f8d54d31f3c7a8cf763408"
+    }
+  }
+}

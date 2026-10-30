@@ -1,15 +1,11 @@
-CXX = g++
-CXXFLAGS = -O3 -Wall -std=c++17 $(shell pkg-config --cflags opencv4)
-LDFLAGS  = $(shell pkg-config --libs opencv4)
+CXX ?= g++
+CPPFLAGS += $(shell pkg-config --cflags opencv4)
+CXXFLAGS ?= -O3 -Wall -Wextra -Wpedantic -std=c++17
+LDLIBS += $(shell pkg-config --libs opencv4)
 
-SRCS = main.cpp neural_network.cpp
-OBJS = $(SRCS:.cpp=.o)
+app: main.cpp neural_network.cpp neural_network.h ../common/weights.hpp ../common/application.hpp ../common/preprocess.hpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) main.cpp neural_network.cpp -o $@ $(LDLIBS)
 
-app: $(OBJS)
-	$(CXX) $(CXXFLAGS) $(OBJS) -o $@ $(LDFLAGS)
-
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
+.PHONY: clean
 clean:
-	rm -f $(OBJS) app
+	rm -f app *.o

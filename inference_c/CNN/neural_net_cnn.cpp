@@ -1,104 +1,56 @@
 #include "neural_net_cnn.h"
-#include <iostream>
-#include <cstdlib>
 
-// ------------------- RELU -------------------
-void ReLU(double* x_in, int length, double* x_out) {
-    for (int i = 0; i < length; i++)
-        x_out[i] = (x_in[i] > 0.0) ? x_in[i] : 0.0;
-}
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <fstream>
+#include <limits>
+#include <stdexcept>
+#include <string>
 
-// ------------------- CONV2D -------------------
-void Conv2d(double* x_in, double* x_out,
-            int kernel_size, int width, int height,
-            double* W, double* b) {
+#include "../common/weights.hpp"
 
-    int h = kernel_size / 2; // padding = 2 pour kernel 5
-
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-
-            double sum = b[0];
-
-            for (int j = -h; j <= h; j++) {
-                for (int i = -h; i <= h; i++) {
-
-                    int yy = y + j;
-                    int xx = x + i;
-
-                    // padding zéro: si hors image -> contribution 0
-                    if (yy >= 0 && yy < height && xx >= 0 && xx < width) {
-                        int w_idx = (j + h) * kernel_size + (i + h);
-                        sum += x_in[yy * width + xx] * W[w_idx];
-                    }
-                }
-            }
-
-            x_out[y * width + x] = sum;
+namespace digits {
+namespace {
+Input convolve_relu(const Input& input, const std::vector<float>& weights, float bias) {
+  Input output{};
+  for (int y = 0; y < kImageWidth; ++y) {
+    for (int x = 0; x < kImageWidth; ++x) {
+      float value = bias;
+      for (int ky = 0; ky < 5; ++ky) {
+        for (int kx = 0; kx < 5; ++kx) {
+          const int row = y + ky - 2, col = x + kx - 2;
+          if (row >= 0 && row < kImageWidth && col >= 0 && col < kImageWidth) {
+            value += input[row * kImageWidth + col] * weights[ky * 5 + kx];
+          }
         }
+      }
+      output[y * kImageWidth + x] = std::max(0.0f, value);
     }
+  }
+  return output;
 }
+}  // namespace
 
-// ------------------- LINEAR -------------------
-void Linear(const LinearLayer& layer, double* x_in, double* x_out) {
-    for (int o = 0; o < layer.out_features; o++) {
-        double sum = layer.b[o];
-        for (int i = 0; i < layer.in_features; i++)
-            sum += layer.W[o * layer.in_features + i] * x_in[i];
-        x_out[o] = sum;
+Cnn::Cnn(const std::filesystem::path& directory)
+    : conv1_weights_(read_parameters(directory / "layer1.0.weight.bin", 25)),
+      conv1_bias_(read_parameters(directory / "layer1.0.bias.bin", 1)),
+      conv2_weights_(read_parameters(directory / "layer2.0.weight.bin", 25)),
+      conv2_bias_(read_parameters(directory / "layer2.0.bias.bin", 1)),
+      linear_weights_(read_parameters(directory / "layer3.weight.bin", kImageSize * kClasses)),
+      linear_bias_(read_parameters(directory / "layer3.bias.bin", kClasses)) {}
+
+Logits Cnn::predict(const Input& input) const {
+  const auto hidden1 = convolve_relu(input, conv1_weights_, conv1_bias_[0]);
+  const auto hidden2 = convolve_relu(hidden1, conv2_weights_, conv2_bias_[0]);
+  Logits output{};
+  for (int digit = 0; digit < kClasses; ++digit) {
+    float value = linear_bias_[digit];
+    for (int i = 0; i < kImageSize; ++i) {
+      value += hidden2[i] * linear_weights_[digit * kImageSize + i];
     }
+    output[digit] = value;
+  }
+  return output;
 }
-
-// ------------------- LECTURE POIDS -------------------
-float* read_weights(const char* filename, int n_element) {
-    FILE* f = fopen(filename, "rb");
-    if (!f) {
-        std::cerr << "Erreur ouverture " << filename << std::endl;
-        exit(1);
-    }
-    float* data = (float*)malloc(sizeof(float) * n_element);
-    fread(data, sizeof(float), n_element, f);
-    fclose(f);
-    return data;
-}
-
-// ------------------- BUFFERS GLOBAUX -------------------
-double conv1_W[KERNEL_SIZE * KERNEL_SIZE];
-double conv1_b[1];
-
-double conv2_W[KERNEL_SIZE * KERNEL_SIZE];
-double conv2_b[1];
-
-double x1[IMG_SIZE], x1_relu[IMG_SIZE];
-double x2[IMG_SIZE], x2_relu[IMG_SIZE];
-
-LinearLayer fc;
-
-// ------------------- CHARGEMENT POIDS -------------------
-void load_weights() {
-    float* w;
-
-    w = read_weights("layer1.0.weight.bin", 25);
-    for (int i = 0; i < 25; i++) conv1_W[i] = w[i];
-    conv1_b[0] = read_weights("layer1.0.bias.bin", 1)[0];
-
-    w = read_weights("layer2.0.weight.bin", 25);
-    for (int i = 0; i < 25; i++) conv2_W[i] = w[i];
-    conv2_b[0] = read_weights("layer2.0.bias.bin", 1)[0];
-
-    fc.in_features = IMG_SIZE;
-    fc.out_features = NUM_CLASSES;
-    fc.W = read_weights("layer3.weight.bin", IMG_SIZE * NUM_CLASSES);
-    fc.b = read_weights("layer3.bias.bin", NUM_CLASSES);
-}
-
-// ------------------- FORWARD COMPLET -------------------
-void CNN_forward(double* input, double* out) {
-    Conv2d(input, x1, KERNEL_SIZE, IMG_W, IMG_H, conv1_W, conv1_b);
-    ReLU(x1, IMG_SIZE, x1_relu);
-
-    Conv2d(x1_relu, x2, KERNEL_SIZE, IMG_W, IMG_H, conv2_W, conv2_b);
-    ReLU(x2, IMG_SIZE, x2_relu);
-
-    Linear(fc, x2_relu, out);
-}
+}  // namespace digits
